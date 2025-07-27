@@ -47,7 +47,7 @@ firebase = pyrebase.initialize_app(firebase_config)
 db = firebase.database()
 
 # Current version of the script
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 logo = Fore.CYAN + '''
  ██████╗ ██╗      █████╗  ███████╗  ███████╗     ██╗  ██╗
@@ -192,7 +192,7 @@ Banned: <banned>
 Can Change Name: <namechange>
 Last Name Change: <lastchanged>''')
 config.set('proxylessban', True)
-config.set('log', False)
+config.set('log', True)
 config.set('autoscrape', 5)
 config.set('setname', True)
 config.set('name', 'BlazeX by HarshOGG and SteveOG')
