@@ -26,6 +26,7 @@ from http.cookiejar import MozillaCookieJar
 import tempfile
 import shutil
 import ctypes
+import subprocess
 
 # Ban checking imports
 from minecraft.networking.connection import Connection
@@ -158,15 +159,24 @@ def check_for_updates():
             download_url = db.child("download_url").get().val()
             if download_url:
                 new_script = requests.get(download_url, timeout=10).text
-                temp_file = "BlazeXStocker_tmp.py"
+                script_path = os.path.abspath(__file__)
+                script_dir = os.path.dirname(script_path)
+                temp_file = os.path.join(script_dir, "BlazeXStocker_tmp.py")
                 with open(temp_file, "w", encoding='utf-8') as f:
                     f.write(new_script)
-                os.rename(temp_file, __file__)
-                os.execv(sys.executable, ['python'] + sys.argv)
+                os.rename(temp_file, script_path)
+                # Start the new script and exit the current one
+                subprocess.Popen([sys.executable, script_path] + sys.argv[1:])
+                sys.exit(0)
             else:
                 print(Fore.YELLOW + "Update available but no download URL provided.")
     except Exception as e:
-        print(Fore.YELLOW + f"Update check failed: {e}")
+        print(Fore.YELLOW + f"Update failed: {e}")
+        if 'temp_file' in locals() and os.path.exists(temp_file):
+            try:
+                os.remove(temp_file)
+            except:
+                pass
 
 class Config:
     def __init__(self):
