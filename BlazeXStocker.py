@@ -58,9 +58,9 @@ logo = Fore.CYAN + '''
  ██████╔╝██║     ███████║   ███╔╝   █████╗        ╚███╔╝ 
  ██╔══██╗██║     ██╔══██║  ███╔╝    ██╔══╝        ██╔██╗ 
  ██████╔╝██████╗ ██║  ██║ ███████╗  ███████╗     ██╔╝  ██╗
- ╚═════╝ ╚═════╝╚═╝  ╚═╝ ╚══════╝  ╚══════╝     ╚═╝   ╚═╝   ~ The Ultimate Minecraft Checker! 
+ ╚═════╝ ╚═════╝╚═╝  ╚═╝ ╚══════╝  ╚══════╝     ╚═╝   ╚═╝   ~ The Ultimate Blaze Checker! 
    Support: Telegram @HarshOGG or @sarthakog [t.me/blaze_cloud] 
-            Discord @harshhhh_og or @sarthakkul  [discord.gg/blaze_cloud] '''
+            Discord @harshhhh_og or @sarthakkul  [discord.gg/blazecloud] '''
 
 sFTTag_url = "https://login.live.com/oauth20_authorize.srf?client_id=00000000402B5328&redirect_uri=https://login.live.com/oauth20_desktop.srf&scope=service::user.auth.xboxlive.com::MBI_SSL&display=touch&response_type=token&locale=en"
 Combos = []
