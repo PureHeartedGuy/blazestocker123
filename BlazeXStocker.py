@@ -26,7 +26,6 @@ from http.cookiejar import MozillaCookieJar
 import tempfile
 import shutil
 import ctypes
-import subprocess
 
 # Ban checking imports
 from minecraft.networking.connection import Connection
@@ -116,6 +115,17 @@ def get_ip():
     except:
         return "Unknown"
 
+def is_admin():
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
+
+if not is_admin():
+    print(Fore.YELLOW + "Requesting administrator privileges...")
+    ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+    sys.exit(0)
+
 def check_passkey():
     mac = get_mac()
     ip = get_ip()
@@ -155,21 +165,34 @@ def check_passkey():
 def check_for_updates():
     try:
         latest_version = db.child("latest_version").get().val()
+        print(f"Latest version from Firebase: {latest_version}")
+        print(f"Current version: {VERSION}")
         if latest_version and version.parse(latest_version) > version.parse(VERSION):
+            print("Update available.")
             download_url = db.child("download_url").get().val()
+            print(f"Download URL: {download_url}")
             if download_url:
                 new_script = requests.get(download_url, timeout=10).text
+                print("Downloaded new script.")
                 script_path = os.path.abspath(__file__)
-                script_dir = os.path.dirname(script_path)
-                temp_file = os.path.join(script_dir, "BlazeXStocker_tmp.py")
+                temp_file = os.path.join(os.path.dirname(script_path), "BlazeXStocker_tmp.py")
                 with open(temp_file, "w", encoding='utf-8') as f:
                     f.write(new_script)
-                os.rename(temp_file, script_path)
-                # Start the new script and exit the current one
-                subprocess.Popen([sys.executable, script_path] + sys.argv[1:])
-                sys.exit(0)
+                print("Wrote new script to temporary file.")
+                if os.access(script_path, os.W_OK):
+                    os.rename(temp_file, script_path)
+                    print("Overwrote the script file.")
+                    os.execl(sys.executable, sys.executable, script_path, *sys.argv[1:])
+                else:
+                    print(Fore.YELLOW + "Cannot update: No write permission for the script file.")
+                    try:
+                        os.remove(temp_file)
+                    except:
+                        pass
             else:
                 print(Fore.YELLOW + "Update available but no download URL provided.")
+        else:
+            print("No update available or version check failed.")
     except Exception as e:
         print(Fore.YELLOW + f"Update failed: {e}")
         if 'temp_file' in locals() and os.path.exists(temp_file):
