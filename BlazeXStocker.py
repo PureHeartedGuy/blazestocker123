@@ -50,7 +50,7 @@ except Exception as e:
     sys.exit(1)
 
 # Current version of the script
-VERSION = "1.1.0"
+VERSION = "1.0.3"
 
 logo = Fore.CYAN + '''
  ██████╗ ██╗      █████╗  ███████╗  ███████╗     ██╗  ██╗
