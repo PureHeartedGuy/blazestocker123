@@ -59,7 +59,7 @@ logo = Fore.CYAN + '''
  ██╔══██╗██║     ██╔══██║  ███╔╝    ██╔══╝        ██╔██╗ 
  ██████╔╝██████╗ ██║  ██║ ███████╗  ███████╗     ██╔╝  ██╗
  ╚═════╝ ╚═════╝╚═╝  ╚═╝ ╚══════╝  ╚══════╝     ╚═╝   ╚═╝   ~ The Ultimate Blaze Checker! 
-   Support: Telegram @HarshOGG or @sarthakog [t.me/blaze_cloud] 
+   Support: Telegram @HarshOGG or @sarthakog [t.me/blazecloud] 
             Discord @harshhhh_og or @sarthakkul  [discord.gg/blazecloud] '''
 
 sFTTag_url = "https://login.live.com/oauth20_authorize.srf?client_id=00000000402B5328&redirect_uri=https://login.live.com/oauth20_desktop.srf&scope=service::user.auth.xboxlive.com::MBI_SSL&display=touch&response_type=token&locale=en"
@@ -164,32 +164,45 @@ def check_passkey():
 
 def check_for_updates():
     try:
+        # Fetch latest version from Firebase
         latest_version = db.child("latest_version").get().val()
         if latest_version is None:
             print(Fore.YELLOW + "Failed to retrieve latest_version from Firebase.")
             return
-        print(f"Latest version from Firebase: {latest_version}")
-        print(f"Current version: {VERSION}")
+        print(Fore.CYAN + f"Latest version from Firebase: {latest_version}")
+        print(Fore.CYAN + f"Current version: {VERSION}")
+
+        # Compare versions
         try:
             if version.parse(latest_version) > version.parse(VERSION):
-                print("Update available.")
+                print(Fore.GREEN + "Update available!")
+                # Fetch download URL
                 download_url = db.child("download_url").get().val()
                 if download_url is None:
                     print(Fore.YELLOW + "Failed to retrieve download_url from Firebase.")
                     return
-                print(f"Download URL: {download_url}")
+                print(Fore.CYAN + f"Download URL: {download_url}")
+
+                # Download new script
                 try:
-                    response = requests.get(download_url, timeout=10)
+                    response = requests.get(download_url, timeout=15)
                     response.raise_for_status()
                     new_script = response.text
+                    print(Fore.CYAN + "Downloaded script preview: " + new_script[:100])
                     if not new_script.strip():
                         print(Fore.YELLOW + "Downloaded script is empty.")
                         return
                 except requests.exceptions.RequestException as e:
                     print(Fore.YELLOW + f"Failed to download new script: {e}")
                     return
+
+                # Define file paths
                 script_path = os.path.abspath(__file__)
                 temp_file = os.path.join(os.path.dirname(script_path), "BlazeXStocker_tmp.py")
+                print(Fore.CYAN + f"Current script path: {script_path}")
+                print(Fore.CYAN + f"Temporary file path: {temp_file}")
+
+                # Write new script to temporary file
                 with open(temp_file, "w", encoding='utf-8') as f:
                     f.write(new_script)
                 if not os.path.exists(temp_file) or os.path.getsize(temp_file) == 0:
@@ -199,6 +212,8 @@ def check_for_updates():
                     except:
                         pass
                     return
+
+                # Check permissions and existence
                 if not os.path.exists(script_path):
                     print(Fore.YELLOW + f"Script path does not exist: {script_path}")
                     try:
@@ -213,18 +228,29 @@ def check_for_updates():
                     except:
                         pass
                     return
+
+                # Replace the script file
                 try:
+                    print(Fore.CYAN + "Attempting to overwrite script file...")
                     os.rename(temp_file, script_path)
-                    print("Overwrote the script file.")
+                    print(Fore.GREEN + "Successfully overwrote the script file.")
+                    print(Fore.CYAN + "Restarting script with updated version...")
                     os.execl(sys.executable, sys.executable, script_path, *sys.argv[1:])
+                except PermissionError as e:
+                    print(Fore.YELLOW + f"Permission error during rename: {e}")
+                except FileNotFoundError as e:
+                    print(Fore.YELLOW + f"File not found error during rename: {e}")
                 except Exception as e:
                     print(Fore.YELLOW + f"Failed to rename temporary file: {e}")
+                finally:
                     try:
-                        os.remove(temp_file)
+                        if os.path.exists(temp_file):
+                            os.remove(temp_file)
+                            print(Fore.CYAN + "Cleaned up temporary file.")
                     except:
                         pass
             else:
-                print("No update needed.")
+                print(Fore.CYAN + "No update needed (current version is up-to-date or newer).")
         except Exception as e:
             print(Fore.YELLOW + f"Version comparison failed: {e}")
     except Exception as e:
@@ -263,7 +289,7 @@ Banned: <banned>
 Can Change Name: <namechange>
 Last Name Change: <lastchanged>''')
 config.set('proxylessban', True)
-config.set('log', False)
+config.set('log', True)
 config.set('autoscrape', 5)
 config.set('setname', True)
 config.set('name', 'BlazeX by HarshOGG and SteveOG')
