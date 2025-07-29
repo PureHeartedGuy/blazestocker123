@@ -59,7 +59,7 @@ logo = Fore.CYAN + '''
  ██╔══██╗██║     ██╔══██║  ███╔╝    ██╔══╝        ██╔██╗ 
  ██████╔╝██████╗ ██║  ██║ ███████╗  ███████╗     ██╔╝  ██╗
  ╚═════╝ ╚═════╝╚═╝  ╚═╝ ╚══════╝  ╚══════╝     ╚═╝   ╚═╝   ~ The Ultimate Blaze Checker! 
-   Support: Telegram @HarshOGG or @sarthakog [t.me/blazecloud] 
+   Support: Telegram @HarshOGG or @sarthakog [t.me/blaze_cloud] 
             Discord @harshhhh_og or @sarthakkul  [discord.gg/blazecloud] '''
 
 sFTTag_url = "https://login.live.com/oauth20_authorize.srf?client_id=00000000402B5328&redirect_uri=https://login.live.com/oauth20_desktop.srf&scope=service::user.auth.xboxlive.com::MBI_SSL&display=touch&response_type=token&locale=en"
@@ -121,6 +121,20 @@ def is_admin():
     except:
         return False
 
+def request_admin_if_needed():
+    if not is_admin():
+        print(Fore.YELLOW + "Requesting administrator privileges...")
+        try:
+            # Re-run the script with admin privileges
+            ctypes.windll.shell32.ShellExecuteW(
+                None, "runas", sys.executable, " ".join(sys.argv), None, 1
+            )
+            sys.exit(0)
+        except:
+            print(Fore.RED + "Failed to get admin privileges. Some features may not work.")
+            return False
+    return True
+
 if not is_admin():
     print(Fore.YELLOW + "Requesting administrator privileges...")
     ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
@@ -169,90 +183,107 @@ def check_for_updates():
         if latest_version is None:
             print(Fore.YELLOW + "Failed to retrieve latest_version from Firebase.")
             return
+        
         print(Fore.CYAN + f"Latest version from Firebase: {latest_version}")
         print(Fore.CYAN + f"Current version: {VERSION}")
 
         # Compare versions
         try:
             if version.parse(latest_version) > version.parse(VERSION):
-                print(Fore.GREEN + "Update available!")
+                print(Fore.GREEN + "Update available! Downloading...")
+                
                 # Fetch download URL
                 download_url = db.child("download_url").get().val()
                 if download_url is None:
                     print(Fore.YELLOW + "Failed to retrieve download_url from Firebase.")
                     return
-                print(Fore.CYAN + f"Download URL: {download_url}")
 
-                # Download new script
+                # Download new script with better error handling
                 try:
-                    response = requests.get(download_url, timeout=15)
+                    response = requests.get(download_url, timeout=30, stream=True)
                     response.raise_for_status()
                     new_script = response.text
-                    print(Fore.CYAN + "Downloaded script preview: " + new_script[:100])
-                    if not new_script.strip():
-                        print(Fore.YELLOW + "Downloaded script is empty.")
+                    
+                    if not new_script.strip() or len(new_script) < 1000:  # Basic validation
+                        print(Fore.YELLOW + "Downloaded script appears invalid (too short).")
                         return
+                        
                 except requests.exceptions.RequestException as e:
                     print(Fore.YELLOW + f"Failed to download new script: {e}")
                     return
 
-                # Define file paths
+                # Create update script
                 script_path = os.path.abspath(__file__)
-                temp_file = os.path.join(os.path.dirname(script_path), "BlazeXStocker_tmp.py")
-                print(Fore.CYAN + f"Current script path: {script_path}")
-                print(Fore.CYAN + f"Temporary file path: {temp_file}")
+                update_script_path = os.path.join(os.path.dirname(script_path), "updater.py")
+                
+                updater_code = f'''
+import os
+import sys
+import time
+import shutil
 
-                # Write new script to temporary file
-                with open(temp_file, "w", encoding='utf-8') as f:
-                    f.write(new_script)
-                if not os.path.exists(temp_file) or os.path.getsize(temp_file) == 0:
-                    print(Fore.YELLOW + "Temporary file not created or empty.")
-                    try:
-                        os.remove(temp_file)
-                    except:
-                        pass
-                    return
+def update_script():
+    try:
+        # Wait for main script to close
+        time.sleep(2)
+        
+        # Paths
+        old_script = r"{script_path}"
+        backup_script = old_script + ".backup"
+        
+        # Create backup
+        if os.path.exists(old_script):
+            shutil.copy2(old_script, backup_script)
+        
+        # Write new script
+        with open(old_script, 'w', encoding='utf-8') as f:
+            f.write("""{new_script.replace('"""', '\\"""')}""")
+        
+        print("Update completed successfully!")
+        
+        # Restart the script
+        os.execl(sys.executable, sys.executable, old_script, *sys.argv[1:])
+        
+    except Exception as e:
+        print(f"Update failed: {{e}}")
+        # Restore backup if update failed
+        if os.path.exists(backup_script):
+            shutil.copy2(backup_script, old_script)
+        input("Press Enter to continue...")
+    finally:
+        # Clean up
+        try:
+            os.remove(__file__)
+        except:
+            pass
 
-                # Check permissions and existence
-                if not os.path.exists(script_path):
-                    print(Fore.YELLOW + f"Script path does not exist: {script_path}")
-                    try:
-                        os.remove(temp_file)
-                    except:
-                        pass
-                    return
-                if not os.access(script_path, os.W_OK):
-                    print(Fore.YELLOW + "No write permission for the script file.")
-                    try:
-                        os.remove(temp_file)
-                    except:
-                        pass
-                    return
+if __name__ == "__main__":
+    update_script()
+'''
 
-                # Replace the script file
+                # Write updater script
                 try:
-                    print(Fore.CYAN + "Attempting to overwrite script file...")
-                    os.rename(temp_file, script_path)
-                    print(Fore.GREEN + "Successfully overwrote the script file.")
-                    print(Fore.CYAN + "Restarting script with updated version...")
-                    os.execl(sys.executable, sys.executable, script_path, *sys.argv[1:])
-                except PermissionError as e:
-                    print(Fore.YELLOW + f"Permission error during rename: {e}")
-                except FileNotFoundError as e:
-                    print(Fore.YELLOW + f"File not found error during rename: {e}")
+                    with open(update_script_path, 'w', encoding='utf-8') as f:
+                        f.write(updater_code)
+                    
+                    print(Fore.GREEN + "Starting update process...")
+                    
+                    # Launch updater and exit
+                    import subprocess
+                    subprocess.Popen([sys.executable, update_script_path])
+                    print(Fore.CYAN + "Update initiated. Script will restart automatically.")
+                    sys.exit(0)
+                    
                 except Exception as e:
-                    print(Fore.YELLOW + f"Failed to rename temporary file: {e}")
-                finally:
-                    try:
-                        if os.path.exists(temp_file):
-                            os.remove(temp_file)
-                            print(Fore.CYAN + "Cleaned up temporary file.")
-                    except:
-                        pass
+                    print(Fore.YELLOW + f"Failed to create updater: {e}")
+                    return
+                    
             else:
                 print(Fore.CYAN + "No update needed (current version is up-to-date or newer).")
+                
         except Exception as e:
             print(Fore.YELLOW + f"Version comparison failed: {e}")
+            
     except Exception as e:
         print(Fore.YELLOW + f"Update check failed: {e}")
 
