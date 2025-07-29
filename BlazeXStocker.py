@@ -59,7 +59,7 @@ logo = Fore.CYAN + '''
  ██╔══██╗██║     ██╔══██║  ███╔╝    ██╔══╝        ██╔██╗ 
  ██████╔╝██████╗ ██║  ██║ ███████╗  ███████╗     ██╔╝  ██╗
  ╚═════╝ ╚═════╝╚═╝  ╚═╝ ╚══════╝  ╚══════╝     ╚═╝   ╚═╝   ~ The Ultimate Blaze Checker! 
-   Support: Telegram @HarshOGG or @sarthakog [t.me/blaze_cloud] 
+   Support: Telegram @HarshOGG or @sarthakog [t.me/blazecloud] 
             Discord @harshhhh_og or @sarthakkul  [discord.gg/blazecloud] '''
 
 sFTTag_url = "https://login.live.com/oauth20_authorize.srf?client_id=00000000402B5328&redirect_uri=https://login.live.com/oauth20_desktop.srf&scope=service::user.auth.xboxlive.com::MBI_SSL&display=touch&response_type=token&locale=en"
@@ -69,7 +69,7 @@ banproxies = []
 fname = ""
 results_dir = None
 RESTOCKER_NAME = "Restocker 1"  # Hardcoded restocker name
-hits, bad, twofa, cpm, cpm1, errors, retries, checked, vm, sfa, mfa, maxretries, xgp, xgpu, other = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+fighters, bad, twofa, cpm, cpm1, errors, retries, checked, vm, sfa, mfa, maxretries, xgp, xgpu, other = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 urllib3.disable_warnings()
 warnings.filterwarnings("ignore")
 
@@ -125,10 +125,7 @@ def request_admin_if_needed():
     if not is_admin():
         print(Fore.YELLOW + "Requesting administrator privileges...")
         try:
-            # Re-run the script with admin privileges
-            ctypes.windll.shell32.ShellExecuteW(
-                None, "runas", sys.executable, " ".join(sys.argv), None, 1
-            )
+            ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
             sys.exit(0)
         except:
             print(Fore.RED + "Failed to get admin privileges. Some features may not work.")
@@ -188,71 +185,63 @@ def check_for_updates():
         print(Fore.CYAN + f"Current version: {VERSION}")
 
         # Compare versions
-        try:
-            if version.parse(latest_version) > version.parse(VERSION):
-                print(Fore.GREEN + "Update available! Downloading...")
-                
-                # Fetch download URL
-                download_url = db.child("download_url").get().val()
-                if download_url is None:
-                    print(Fore.YELLOW + "Failed to retrieve download_url from Firebase.")
-                    return
+        if version.parse(latest_version) > version.parse(VERSION):
+            print(Fore.GREEN + "Update available! Downloading...")
+            
+            # Fetch download URL
+            download_url = db.child("download_url").get().val()
+            if download_url is None:
+                print(Fore.YELLOW + "Failed to retrieve download_url from Firebase.")
+                return
 
-                # Download new script with better error handling
-                try:
-                    response = requests.get(download_url, timeout=30, stream=True)
-                    response.raise_for_status()
-                    new_script = response.text
-                    
-                    if not new_script.strip() or len(new_script) < 1000:  # Basic validation
-                        print(Fore.YELLOW + "Downloaded script appears invalid (too short).")
-                        return
-                        
-                except requests.exceptions.RequestException as e:
-                    print(Fore.YELLOW + f"Failed to download new script: {e}")
-                    return
+            # Create a temporary directory
+            temp_dir = tempfile.mkdtemp()
+            new_script_path = os.path.join(temp_dir, 'new_script.py')
+            
+            # Download new script to temporary file
+            try:
+                response = requests.get(download_url, timeout=30, stream=True)
+                response.raise_for_status()
+                with open(new_script_path, 'w', encoding='utf-8') as f:
+                    f.write(response.text)
+            except requests.exceptions.RequestException as e:
+                print(Fore.YELLOW + f"Failed to download new script: {e}")
+                return
 
-                # Create update script
-                script_path = os.path.abspath(__file__)
-                update_script_path = os.path.join(os.path.dirname(script_path), "updater.py")
-                
-                updater_code = f'''
+            # Create updater script
+            updater_path = os.path.join(temp_dir, 'updater.py')
+            main_script_path = os.path.abspath(__file__)
+            
+            updater_code = f'''
 import os
 import sys
-import time
 import shutil
+import subprocess
+import time
 
 def update_script():
     try:
-        # Wait for main script to close
+        main_script = r"{main_script_path}"
+        new_script = r"{new_script_path}"
+        
+        # Wait briefly to ensure main script has closed
         time.sleep(2)
         
-        # Paths
-        old_script = r"{script_path}"
-        backup_script = old_script + ".backup"
-        
-        # Create backup
-        if os.path.exists(old_script):
-            shutil.copy2(old_script, backup_script)
-        
-        # Write new script
-        with open(old_script, 'w', encoding='utf-8') as f:
-            f.write("""{new_script.replace('"""', '\\"""')}""")
+        # Replace old script with new one
+        shutil.copy2(new_script, main_script)
         
         print("Update completed successfully!")
         
-        # Restart the script
-        os.execl(sys.executable, sys.executable, old_script, *sys.argv[1:])
+        # Restart the main script
+        subprocess.Popen([sys.executable, main_script] + sys.argv[1:])
         
     except Exception as e:
         print(f"Update failed: {{e}}")
-        # Restore backup if update failed
-        if os.path.exists(backup_script):
-            shutil.copy2(backup_script, old_script)
         input("Press Enter to continue...")
     finally:
-        # Clean up
+        # Clean up temporary files
         try:
+            os.remove(new_script)
             os.remove(__file__)
         except:
             pass
@@ -260,30 +249,16 @@ def update_script():
 if __name__ == "__main__":
     update_script()
 '''
-
-                # Write updater script
-                try:
-                    with open(update_script_path, 'w', encoding='utf-8') as f:
-                        f.write(updater_code)
-                    
-                    print(Fore.GREEN + "Starting update process...")
-                    
-                    # Launch updater and exit
-                    import subprocess
-                    subprocess.Popen([sys.executable, update_script_path])
-                    print(Fore.CYAN + "Update initiated. Script will restart automatically.")
-                    sys.exit(0)
-                    
-                except Exception as e:
-                    print(Fore.YELLOW + f"Failed to create updater: {e}")
-                    return
-                    
-            else:
-                print(Fore.CYAN + "No update needed (current version is up-to-date or newer).")
-                
-        except Exception as e:
-            print(Fore.YELLOW + f"Version comparison failed: {e}")
+            with open(updater_path, 'w', encoding='utf-8') as f:
+                f.write(updater_code)
             
+            # Launch updater and exit
+            print(Fore.GREEN + "Starting update process...")
+            subprocess.Popen([sys.executable, updater_path])
+            print(Fore.CYAN + "Update initiated. Script will restart automatically.")
+            sys.exit(0)
+        else:
+            print(Fore.CYAN + "No update needed (current version is up-to-date or newer).")
     except Exception as e:
         print(Fore.YELLOW + f"Update check failed: {e}")
 
